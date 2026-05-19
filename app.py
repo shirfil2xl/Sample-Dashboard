@@ -89,6 +89,13 @@ def validate_data_quality(sales: pd.DataFrame) -> dict:
     return warnings
 
 
+def calculate_support_from_transaction_count(transaction_count: int, total_transactions: int) -> float:
+    """Convert transaction count to support percentage."""
+    if total_transactions == 0:
+        return 0.0
+    return transaction_count / total_transactions
+
+
 @st.cache_data
 def run_association_analysis(sales: pd.DataFrame, min_support: float, min_lift: float) -> Tuple[pd.DataFrame, int]:
     """Run Apriori algorithm for market basket analysis."""
@@ -300,7 +307,7 @@ def create_store_performance_chart(sales: pd.DataFrame) -> go.Figure:
 # ============================================================================
 st.set_page_config(**PAGE_CONFIG)
 st.title("🛒 Sales Hidden Pattern Analysis")
-st.markdown("Upload your sales data and discover")
+st.markdown("Upload your sales data and discover hidden patterns using Machine Learning")
 st.divider()
 
 # File upload
@@ -420,37 +427,60 @@ tab1, tab2, tab3, tab4 = st.tabs([
 # ============================================================================
 with tab1:
     st.subheader("🔗 Market Basket Analysis — What is Bought Together?")
+    st.markdown("Apriori algorithm finds products frequently purchased together")
     st.markdown("### ⚙️ Parameters")
     
+    # Calculate total unique transactions for this filtered dataset
+    total_transactions = filtered_sales_pos['Transaction No_'].nunique()
+    
     col1, col2 = st.columns(2)
+    
     with col1:
-        min_support = st.slider(
-            "Minimum Support",
-            min_value=APRIORI_CONFIG["min_support_range"][0],
-            max_value=APRIORI_CONFIG["min_support_range"][1],
-            value=APRIORI_CONFIG["min_support_default"],
-            step=0.0005,
-            help="0.01 = combo must appear in 1% of transactions"
+        st.markdown("**Minimum Support (by Transaction Count)**")
+        st.info(f"📊 Total transactions in filtered data: **{total_transactions:,}**")
+        
+        # Calculate default transaction count (1% of total)
+        default_transaction_count = max(1, int(total_transactions * 0.01))
+        min_transaction_count = max(1, int(total_transactions * 0.005))
+        max_transaction_count = max(2, int(total_transactions * 0.05))
+        
+        support_transactions = st.slider(
+            "Number of transactions (combo must appear in this many transactions)",
+            min_value=min_transaction_count,
+            max_value=max_transaction_count,
+            value=default_transaction_count,
+            step=max(1, (max_transaction_count - min_transaction_count) // 20),
+            key="support_transactions"
         )
+        
+        # Convert transaction count to support percentage
+        min_support = calculate_support_from_transaction_count(support_transactions, total_transactions)
+        
+        # Display the converted percentage
+        st.caption(f"📈 Equivalent to {min_support*100:.2f}% support")
+    
     with col2:
+        st.markdown("**Minimum Lift**")
         min_lift = st.slider(
-            "Minimum Lift",
+            "Lift Score (how much more likely items are bought together)",
             min_value=APRIORI_CONFIG["min_lift_range"][0],
             max_value=APRIORI_CONFIG["min_lift_range"][1],
             value=APRIORI_CONFIG["min_lift_default"],
             step=0.5,
-            help="Higher = stronger rules only"
+            help="Higher = stronger, more meaningful rules only",
+            key="min_lift"
         )
+        st.caption("💡 Lift > 1 means items are bought together more often than by chance")
 
     if st.button("🔍 Find Patterns", type="primary"):
-        with st.spinner("Running... please wait"):
+        with st.spinner("Running Apriori algorithm... please wait"):
             try:
                 rules, rule_count = run_association_analysis(filtered_sales_pos, min_support, min_lift)
                 
                 if rule_count == 0:
-                    st.warning(f"No rules found with these parameters. Try lowering minimum support.")
+                    st.warning(f"❌ No rules found with these parameters. Try lowering the transaction count or lift threshold.")
                 else:
-                    st.success(f"✅ Found {rule_count} rules with lift ≥ {min_lift}")
+                    st.success(f"✅ Found {rule_count} rules (min support: {support_transactions} transactions, lift ≥ {min_lift})")
                     
                     st.plotly_chart(create_lift_chart(rules), use_container_width=True)
                     st.plotly_chart(create_support_confidence_chart(rules), use_container_width=True)
@@ -461,7 +491,7 @@ with tab1:
                         use_container_width=True
                     )
             except Exception as e:
-                st.error(f"❌ Error: {e}. Try lowering the minimum support value.")
+                st.error(f"❌ Error: {e}. Try lowering the transaction count value.")
 
 # ============================================================================
 # Tab 2: Revenue Trends
