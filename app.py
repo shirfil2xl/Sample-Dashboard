@@ -271,6 +271,30 @@ def create_heatmap_chart(corr: pd.DataFrame) -> go.Figure:
     return fig
 
 
+def create_store_performance_chart(sales: pd.DataFrame) -> go.Figure:
+    """Create store performance comparison chart."""
+    store_perf = sales.groupby('Store No_').agg({
+        'Net Amount': 'sum',
+        'Transaction No_': 'nunique',
+        'Quantity': 'sum'
+    }).reset_index()
+    store_perf.columns = ['Store No_', 'Revenue', 'Transactions', 'Quantity']
+    store_perf = store_perf.sort_values('Revenue', ascending=False)
+    
+    fig = px.bar(
+        store_perf,
+        x='Store No_',
+        y='Revenue',
+        color='Revenue',
+        color_continuous_scale='Viridis',
+        title='Revenue by Store Location',
+        labels={'Store No_': 'Store Location', 'Revenue': 'Total Revenue (AED)'},
+        hover_data=['Transactions', 'Quantity']
+    )
+    fig.update_layout(height=400)
+    return fig
+
+
 # ============================================================================
 # Main App
 # ============================================================================
@@ -305,16 +329,81 @@ if len(sales_pos) == 0:
     st.error("No positive sales data found. Please check your file.")
     st.stop()
 
+# ============================================================================
+# Sidebar: Store Location Filter
+# ============================================================================
+st.sidebar.markdown("### 🏪 Store Location Filter")
+st.sidebar.markdown("Select one or more store locations to analyze:")
+
+# Get unique stores
+all_stores = sorted(sales['Store No_'].unique().astype(str))
+all_stores_list = ['All Stores'] + all_stores
+
+# Create attractive filter UI
+filter_style = """
+<style>
+    .store-filter-container {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        padding: 20px;
+        border-radius: 10px;
+        color: white;
+        margin-bottom: 10px;
+    }
+</style>
+"""
+
+st.sidebar.markdown(filter_style, unsafe_allow_html=True)
+
+# Multi-select for stores
+selected_stores = st.sidebar.multiselect(
+    label="📍 Choose Store(s)",
+    options=all_stores,
+    default=all_stores[:1] if len(all_stores) > 0 else all_stores,
+    help="Select one or multiple store locations. Leave empty to view all stores."
+)
+
+# If no stores selected, use all stores
+if len(selected_stores) == 0:
+    selected_stores = all_stores
+    st.sidebar.info("ℹ️ Showing all stores")
+
+# Filter data by selected stores
+filtered_sales = sales[sales['Store No_'].astype(str).isin(selected_stores)]
+filtered_sales_pos = filtered_sales[filtered_sales['Net Amount'] > 0]
+
+if len(filtered_sales_pos) == 0:
+    st.error("❌ No data available for selected store location(s). Please select different stores.")
+    st.stop()
+
+# Display store filter summary
+with st.sidebar:
+    st.markdown("---")
+    st.markdown("### 📊 Filter Summary")
+    col_a, col_b = st.columns(2)
+    col_a.metric("🏢 Stores Selected", len(selected_stores))
+    col_b.metric("📦 Transactions", f"{len(filtered_sales_pos):,}")
+    
+    col_c, col_d = st.columns(2)
+    col_c.metric("💰 Total Revenue", f"AED {filtered_sales_pos['Net Amount'].sum():,.0f}")
+    col_d.metric("🔄 Total Returns", f"AED {abs(filtered_sales[filtered_sales['Net Amount'] < 0]['Net Amount'].sum()):,.0f}")
+
 # Key metrics
-st.success(f"✅ Data loaded — {len(sales):,} rows | {sales['Store No_'].nunique()} stores | {sales['Item No_'].nunique():,} products")
+store_display = ", ".join(selected_stores) if len(selected_stores) <= 3 else f"{', '.join(selected_stores[:3])}, +{len(selected_stores) - 3} more"
+st.success(f"✅ Filtered Data — {len(filtered_sales):,} rows | Stores: {store_display} | {filtered_sales['Item No_'].nunique():,} products")
 
 st.subheader("📊 Key Numbers")
 k1, k2, k3, k4, k5 = st.columns(5)
-k1.metric("Total Revenue", f"AED {sales_pos['Net Amount'].sum():,.0f}")
-k2.metric("Transactions", f"{sales_pos['Transaction No_'].nunique():,}")
-k3.metric("Unique Products", f"{sales['Item No_'].nunique():,}")
-k4.metric("Stores", f"{sales['Store No_'].nunique()}")
-k5.metric("Total Returns", f"AED {abs(sales[sales['Net Amount'] < 0]['Net Amount'].sum()):,.0f}")
+k1.metric("Total Revenue", f"AED {filtered_sales_pos['Net Amount'].sum():,.0f}")
+k2.metric("Transactions", f"{filtered_sales_pos['Transaction No_'].nunique():,}")
+k3.metric("Unique Products", f"{filtered_sales['Item No_'].nunique():,}")
+k4.metric("Selected Stores", f"{len(selected_stores)}")
+k5.metric("Total Returns", f"AED {abs(filtered_sales[filtered_sales['Net Amount'] < 0]['Net Amount'].sum()):,.0f}")
+
+st.divider()
+
+# Store Performance Overview
+st.subheader("🏪 Store Performance Overview")
+st.plotly_chart(create_store_performance_chart(filtered_sales_pos), use_container_width=True)
 
 st.divider()
 
@@ -357,7 +446,7 @@ with tab1:
     if st.button("🔍 Find Patterns", type="primary"):
         with st.spinner("Running Apriori algorithm... please wait"):
             try:
-                rules, rule_count = run_association_analysis(sales_pos, min_support, min_lift)
+                rules, rule_count = run_association_analysis(filtered_sales_pos, min_support, min_lift)
                 
                 if rule_count == 0:
                     st.warning(f"No rules found with these parameters. Try lowering minimum support.")
@@ -383,12 +472,12 @@ with tab2:
     col1, col2 = st.columns(2)
     
     with col1:
-        st.plotly_chart(create_monthly_trend_chart(sales_pos), use_container_width=True)
+        st.plotly_chart(create_monthly_trend_chart(filtered_sales_pos), use_container_width=True)
     
     with col2:
-        st.plotly_chart(create_weekend_vs_weekday_chart(sales_pos), use_container_width=True)
+        st.plotly_chart(create_weekend_vs_weekday_chart(filtered_sales_pos), use_container_width=True)
     
-    st.plotly_chart(create_daily_revenue_chart(sales_pos), use_container_width=True)
+    st.plotly_chart(create_daily_revenue_chart(filtered_sales_pos), use_container_width=True)
 
 # ============================================================================
 # Tab 3: Pareto Analysis
@@ -397,7 +486,7 @@ with tab3:
     st.subheader("📦 Pareto Analysis — 80/20 Rule")
     
     try:
-        pareto = prepare_pareto_data(sales_pos)
+        pareto = prepare_pareto_data(filtered_sales_pos)
         top80 = pareto[pareto['Cumulative %'] <= 80]
         
         p1, p2, p3 = st.columns(3)
@@ -418,10 +507,9 @@ with tab4:
     
     try:
         with st.spinner("Building heatmap..."):
-            corr = prepare_correlation_matrix(sales_pos)
+            corr = prepare_correlation_matrix(filtered_sales_pos)
             st.plotly_chart(create_heatmap_chart(corr), use_container_width=True)
         
         st.markdown("🔴 Dark red = strongly bought together | ⬜ White = no relationship")
     except Exception as e:
         st.error(f"❌ Error building heatmap: {e}")
-
