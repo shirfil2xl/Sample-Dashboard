@@ -439,25 +439,40 @@ with tab1:
         st.markdown("**Minimum Support (by Transaction Count)**")
         st.info(f"📊 Total transactions in filtered data: **{total_transactions:,}**")
         
-        # Calculate default transaction count (1% of total)
-        default_transaction_count = max(1, int(total_transactions * 0.01))
-        min_transaction_count = max(1, int(total_transactions * 0.005))
-        max_transaction_count = max(2, int(total_transactions * 0.05))
+        # Create two sub-columns for slider and number input
+        slider_col, input_col = st.columns([3, 1])
         
-        support_transactions = st.slider(
-            "Number of transactions (combo must appear in this many transactions)",
-            min_value=min_transaction_count,
-            max_value=max_transaction_count,
-            value=default_transaction_count,
-            step=max(1, (max_transaction_count - min_transaction_count) // 20),
-            key="support_transactions"
-        )
+        with slider_col:
+            # Calculate max transaction count (10% of total)
+            max_transaction_count = max(50, int(total_transactions * 0.1))
+            
+            support_transactions = st.slider(
+                "Slider: Select transaction count",
+                min_value=1,
+                max_value=max_transaction_count,
+                value=min(50, total_transactions // 2),
+                step=50,
+                key="support_transactions_slider"
+            )
+        
+        with input_col:
+            # Number input for precise selection
+            support_transactions_input = st.number_input(
+                "Or type count",
+                min_value=1,
+                max_value=max_transaction_count,
+                value=support_transactions,
+                step=1,
+                key="support_transactions_input"
+            )
+            support_transactions = int(support_transactions_input)
         
         # Convert transaction count to support percentage
         min_support = calculate_support_from_transaction_count(support_transactions, total_transactions)
         
         # Display the converted percentage
-        st.caption(f"📈 Equivalent to {min_support*100:.2f}% support")
+        support_percentage = min_support * 100
+        st.markdown(f"**📈 Equivalent to {support_percentage:.2f}% support**")
     
     with col2:
         st.markdown("**Minimum Lift**")
@@ -480,7 +495,7 @@ with tab1:
                 if rule_count == 0:
                     st.warning(f"❌ No rules found with these parameters. Try lowering the transaction count or lift threshold.")
                 else:
-                    st.success(f"✅ Found {rule_count} rules (min support: {support_transactions} transactions, lift ≥ {min_lift})")
+                    st.success(f"✅ Found {rule_count} rules (min support: {support_transactions:,} transactions / {support_percentage:.2f}%, lift ≥ {min_lift})")
                     
                     st.plotly_chart(create_lift_chart(rules), use_container_width=True)
                     st.plotly_chart(create_support_confidence_chart(rules), use_container_width=True)
