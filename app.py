@@ -4,8 +4,6 @@ import numpy as np
 import plotly.express as px
 import plotly.graph_objects as go
 from mlxtend.frequent_patterns import apriori, association_rules
-from sklearn.cluster import KMeans
-from sklearn.preprocessing import StandardScaler
 from typing import Tuple
 import logging
 
@@ -33,12 +31,6 @@ APRIORI_CONFIG = {
     "min_support_default": 0.01,
     "min_lift_range": (1.0, 15.0),
     "min_lift_default": 3.0,
-}
-
-CLUSTERING_CONFIG = {
-    "n_clusters_range": (2, 5),
-    "n_clusters_default": 3,
-    "random_state": 42,
 }
 
 COLOR_SCHEME = {
@@ -130,36 +122,6 @@ def run_association_analysis(sales: pd.DataFrame, min_support: float, min_lift: 
 
 
 @st.cache_data
-def run_clustering_analysis(sales: pd.DataFrame, n_clusters: int) -> pd.DataFrame:
-    """Run KMeans clustering on store data."""
-    try:
-        store_data = (sales.groupby('Store No_')
-                     .agg(
-                         Revenue=('Net Amount', 'sum'),
-                         Quantity=('Quantity', 'sum'),
-                         Transactions=('Transaction No_', 'nunique')
-                     )
-                     .reset_index())
-        
-        if len(store_data) < n_clusters:
-            raise ValueError(f"Not enough stores ({len(store_data)}) for {n_clusters} clusters.")
-        
-        store_data.columns = ['Store', 'Revenue', 'Quantity', 'Transactions']
-        
-        scaler = StandardScaler()
-        scaled = scaler.fit_transform(store_data[['Revenue', 'Quantity', 'Transactions']])
-        
-        kmeans = KMeans(n_clusters=n_clusters, random_state=CLUSTERING_CONFIG['random_state'], n_init=10)
-        store_data['Cluster'] = kmeans.fit_predict(scaled).astype(str)
-        
-        return store_data
-    
-    except Exception as e:
-        logger.error(f"Error in clustering analysis: {e}")
-        raise
-
-
-@st.cache_data
 def prepare_pareto_data(sales: pd.DataFrame) -> pd.DataFrame:
     """Prepare Pareto analysis data."""
     pareto = (sales.groupby('Search Description')['Net Amount']
@@ -209,23 +171,6 @@ def create_support_confidence_chart(rules: pd.DataFrame) -> go.Figure:
         hover_data=['IF', 'THEN'],
         title='All Association Rules — Support vs Confidence'
     )
-    return fig
-
-
-def create_store_clustering_chart(store_data: pd.DataFrame, n_clusters: int) -> go.Figure:
-    """Create scatter plot for store clustering."""
-    fig = px.scatter(
-        store_data, 
-        x='Revenue', 
-        y='Transactions', 
-        color='Cluster',
-        size='Quantity', 
-        text='Store',
-        title=f'Store Segmentation — {n_clusters} Groups',
-        color_discrete_sequence=px.colors.qualitative.Set2
-    )
-    fig.update_traces(textposition='top center')
-    fig.update_layout(height=500)
     return fig
 
 
@@ -374,9 +319,8 @@ k5.metric("Total Returns", f"AED {abs(sales[sales['Net Amount'] < 0]['Net Amount
 st.divider()
 
 # Tabs
-tab1, tab2, tab3, tab4, tab5 = st.tabs([
+tab1, tab2, tab3, tab4 = st.tabs([
     "🔗 Association Rules",
-    "🏪 Store Clustering",
     "📈 Revenue Trends",
     "📦 Pareto Analysis",
     "🏠 Department Heatmap"
@@ -432,35 +376,9 @@ with tab1:
                 st.error(f"❌ Error: {e}. Try lowering the minimum support value.")
 
 # ============================================================================
-# Tab 2: Store Clustering
+# Tab 2: Revenue Trends
 # ============================================================================
 with tab2:
-    st.subheader("🏪 Store Segmentation — KMeans Clustering")
-    st.markdown("Groups stores by similar behaviour — Revenue, Quantity and Transactions")
-    
-    n_clusters = st.slider(
-        "Number of store groups",
-        min_value=CLUSTERING_CONFIG["n_clusters_range"][0],
-        max_value=CLUSTERING_CONFIG["n_clusters_range"][1],
-        value=CLUSTERING_CONFIG["n_clusters_default"],
-        step=1,
-        help="3 = divide stores into 3 groups"
-    )
-    
-    try:
-        store_data = run_clustering_analysis(sales_pos, n_clusters)
-        st.plotly_chart(create_store_clustering_chart(store_data, n_clusters), use_container_width=True)
-        st.dataframe(
-            store_data.sort_values('Revenue', ascending=False).reset_index(drop=True),
-            use_container_width=True
-        )
-    except Exception as e:
-        st.error(f"❌ Error: {e}")
-
-# ============================================================================
-# Tab 3: Revenue Trends
-# ============================================================================
-with tab3:
     st.subheader("📈 Revenue Trends")
     col1, col2 = st.columns(2)
     
@@ -473,9 +391,9 @@ with tab3:
     st.plotly_chart(create_daily_revenue_chart(sales_pos), use_container_width=True)
 
 # ============================================================================
-# Tab 4: Pareto Analysis
+# Tab 3: Pareto Analysis
 # ============================================================================
-with tab4:
+with tab3:
     st.subheader("📦 Pareto Analysis — 80/20 Rule")
     
     try:
@@ -493,9 +411,9 @@ with tab4:
         st.error(f"❌ Error: {e}")
 
 # ============================================================================
-# Tab 5: Department Heatmap
+# Tab 4: Department Heatmap
 # ============================================================================
-with tab5:
+with tab4:
     st.subheader("🏠 Department Affinity Heatmap")
     
     try:
