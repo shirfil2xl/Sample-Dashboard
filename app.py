@@ -27,10 +27,10 @@ REQUIRED_COLUMNS = {
 }
 
 APRIORI_CONFIG = {
-    "min_support_range": (0.005, 0.05),
-    "min_support_default": 0.01,
-    "min_lift_range": (1.0, 15.0),
-    "min_lift_default": 3.0,
+    "min_support_range": (0.005, 0.5),
+    "min_support_default": 0.00001,
+    "min_lift_range": (.0, 100.0),
+    "min_lift_default": 0.0,
 }
 
 COLOR_SCHEME = {
