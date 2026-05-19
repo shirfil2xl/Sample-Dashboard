@@ -23,7 +23,7 @@ PAGE_CONFIG = {
 REQUIRED_COLUMNS = {
     'Date', 'Net Amount', 'Quantity', 'Transaction No_', 
     'Store No_', 'Item No_', 'Item Category', 'Subgroup Desc',
-    'Department Desc', 'Search Description'
+    'Department Desc', 'Search Description', 'Item Description'
 }
 
 APRIORI_CONFIG = {
@@ -98,14 +98,14 @@ def calculate_support_from_transaction_count(transaction_count: int, total_trans
 
 @st.cache_data
 def run_association_analysis(sales: pd.DataFrame, min_support: float, min_lift: float) -> Tuple[pd.DataFrame, int]:
-    """Run analysis"""
+    """Run Apriori algorithm for market basket analysis using Item Description."""
     try:
         sc = sales[(sales['Net Amount'] > 0) & (sales['Item Category'] != 'Service')].copy()
         
         if len(sc) == 0:
             raise ValueError("No valid transactions found after filtering.")
         
-        basket = (sc.groupby(['Transaction No_', 'Subgroup Desc'])['Quantity']
+        basket = (sc.groupby(['Transaction No_', 'Item Description'])['Quantity']
                  .sum().unstack(fill_value=0).gt(0).astype('bool'))
         
         freq = apriori(basket, min_support=min_support, use_colnames=True)
@@ -306,8 +306,8 @@ def create_store_performance_chart(sales: pd.DataFrame) -> go.Figure:
 # Main App
 # ============================================================================
 st.set_page_config(**PAGE_CONFIG)
-st.title("🛒 Sales Pattern Analysis Dashboard")
-st.markdown("Upload your sales data and discover patterns ")
+st.title("🛒 Sales Hidden Pattern Analysis")
+st.markdown("Upload your sales data and discover hidden patterns using Machine Learning")
 st.divider()
 
 # File upload
@@ -398,6 +398,15 @@ with st.sidebar:
 store_display = ", ".join(selected_stores) if len(selected_stores) <= 3 else f"{', '.join(selected_stores[:3])}, +{len(selected_stores) - 3} more"
 st.success(f"✅ Filtered Data — {len(filtered_sales):,} rows | Stores: {store_display} | {filtered_sales['Item No_'].nunique():,} products")
 
+# Add custom CSS to decrease KPI values font size
+st.markdown("""
+<style>
+    [data-testid="metricDeltaContainer"] > div:first-child {
+        font-size: 14px;
+    }
+</style>
+""", unsafe_allow_html=True)
+
 st.subheader("📊 Key Numbers")
 k1, k2, k3, k4, k5 = st.columns(5)
 k1.metric("Total Revenue", f"AED {filtered_sales_pos['Net Amount'].sum():,.0f}")
@@ -427,7 +436,7 @@ tab1, tab2, tab3, tab4 = st.tabs([
 # ============================================================================
 with tab1:
     st.subheader("🔗 Market Basket Analysis — What is Bought Together?")
-    st.markdown("Apriori algorithm finds products frequently purchased together")
+    st.markdown("Apriori algorithm finds products frequently purchased together by Item Description")
     st.markdown("### ⚙️ Parameters")
     
     # Calculate total unique transactions for this filtered dataset
