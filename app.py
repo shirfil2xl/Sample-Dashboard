@@ -98,7 +98,7 @@ def calculate_support_from_transaction_count(transaction_count: int, total_trans
 
 @st.cache_data
 def run_association_analysis(sales: pd.DataFrame, min_support: float, min_lift: float) -> Tuple[pd.DataFrame, int]:
-    """Run Apriori algorithm for market basket analysis."""
+    """Run analysis"""
     try:
         sc = sales[(sales['Net Amount'] > 0) & (sales['Item Category'] != 'Service')].copy()
         
