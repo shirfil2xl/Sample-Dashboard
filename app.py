@@ -425,8 +425,3 @@ with tab4:
     except Exception as e:
         st.error(f"❌ Error building heatmap: {e}")
 
-# ============================================================================
-# Footer
-# ============================================================================
-st.divider()
-st.caption("Built with Python · Streamlit · Plotly · mlxtend · scikit-learn")
