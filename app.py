@@ -306,8 +306,8 @@ def create_store_performance_chart(sales: pd.DataFrame) -> go.Figure:
 # Main App
 # ============================================================================
 st.set_page_config(**PAGE_CONFIG)
-st.title("🛒 Sales Hidden Pattern Analysis")
-st.markdown("Upload your sales data and discover hidden patterns using Machine Learning")
+st.title("🛒 Sales Pattern Analysis Dashboard")
+st.markdown("Upload your sales data and discover patterns ")
 st.divider()
 
 # File upload
