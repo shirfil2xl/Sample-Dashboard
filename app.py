@@ -300,7 +300,7 @@ def create_store_performance_chart(sales: pd.DataFrame) -> go.Figure:
 # ============================================================================
 st.set_page_config(**PAGE_CONFIG)
 st.title("🛒 Sales Hidden Pattern Analysis")
-st.markdown("Upload your sales data and discover hidden patterns using Machine Learning")
+st.markdown("Upload your sales data and discover")
 st.divider()
 
 # File upload
@@ -420,7 +420,6 @@ tab1, tab2, tab3, tab4 = st.tabs([
 # ============================================================================
 with tab1:
     st.subheader("🔗 Market Basket Analysis — What is Bought Together?")
-    st.markdown("Apriori algorithm finds products frequently purchased together")
     st.markdown("### ⚙️ Parameters")
     
     col1, col2 = st.columns(2)
@@ -430,7 +429,7 @@ with tab1:
             min_value=APRIORI_CONFIG["min_support_range"][0],
             max_value=APRIORI_CONFIG["min_support_range"][1],
             value=APRIORI_CONFIG["min_support_default"],
-            step=0.005,
+            step=0.0005,
             help="0.01 = combo must appear in 1% of transactions"
         )
     with col2:
@@ -444,7 +443,7 @@ with tab1:
         )
 
     if st.button("🔍 Find Patterns", type="primary"):
-        with st.spinner("Running Apriori algorithm... please wait"):
+        with st.spinner("Running... please wait"):
             try:
                 rules, rule_count = run_association_analysis(filtered_sales_pos, min_support, min_lift)
                 
