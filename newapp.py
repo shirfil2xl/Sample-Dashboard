@@ -23,7 +23,7 @@ PAGE_CONFIG = {
 REQUIRED_COLUMNS = {
     'Date', 'Net Amount', 'Quantity', 'Transaction No_', 
     'Store No_', 'Item No_', 'Item Category', 'Subgroup Desc',
-    'Department Desc', 'Search Description', 'Item Description'
+    'Department Desc', 'Search Description', 'Search Description'
 }
 
 APRIORI_CONFIG = {
@@ -105,7 +105,7 @@ def run_association_analysis(sales: pd.DataFrame, min_support: float, min_lift: 
         if len(sc) == 0:
             raise ValueError("No valid transactions found after filtering.")
         
-        basket = (sc.groupby(['Transaction No_', 'Item Description'])['Quantity']
+        basket = (sc.groupby(['Transaction No_', 'Search Description'])['Quantity']
                  .sum().unstack(fill_value=0).gt(0).astype('bool'))
         
         freq = apriori(basket, min_support=min_support, use_colnames=True)
@@ -141,7 +141,7 @@ def prepare_pareto_data(sales: pd.DataFrame) -> pd.DataFrame:
 @st.cache_data
 def prepare_correlation_matrix(sales: pd.DataFrame) -> pd.DataFrame:
     """Prepare department correlation matrix."""
-    dept = (sales.groupby(['Transaction No_', 'Department Desc'])['Quantity']
+    dept = (sales.groupby(['Transaction No_', 'Search Description'])['Quantity']
            .sum().unstack().fillna(0))
     return dept.corr()
 
@@ -307,7 +307,7 @@ def create_store_performance_chart(sales: pd.DataFrame) -> go.Figure:
 # ============================================================================
 st.set_page_config(**PAGE_CONFIG)
 st.title("🛒 Sales Hidden Pattern Analysis")
-st.markdown("Upload your sales data and discover hidden patterns using Machine Learning")
+st.markdown("Upload your sales data and discover patterns")
 st.divider()
 
 # File upload
